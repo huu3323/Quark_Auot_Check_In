@@ -1,28 +1,31 @@
-name: Quark Sign-in
+name: Quark Auto Sign
 
 on:
   schedule:
-    - cron: '0 1 * * *'  # 每天 UTC 时间 1:00 执行，即北京时间 9:00
-
-  workflow_dispatch:  # 手动触发
+    - cron: '0 2 * * *'  # UTC 02:00 = 北京时间 10:00，每天运行
+  workflow_dispatch:  # 允许手动触发
 
 jobs:
-  sign-in:
+  sign:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: ⏳ 随机延迟 0~60 秒（防止固定时间签到被风控）
+        run: sleep $((RANDOM % 60))s
 
-      - name: Set up Python
+      - name: 🔽 检出仓库代码
+        uses: actions/checkout@v4
+
+      - name: 📦 设置 Python 环境
         uses: actions/setup-python@v4
         with:
           python-version: '3.x'
 
-      - name: Install dependencies
+      - name: 📥 安装 Python 依赖
         run: pip install requests
 
-      - name: Run Quark Sign-in
+      - name: 🚀 运行夸克签到脚本（checkln_Quark.py）
         env:
           COOKIE_QUARK: ${{ secrets.COOKIE_QUARK }}
-        run: |
-          python checkIn_Quark.py
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: python checkln_Quark.py
