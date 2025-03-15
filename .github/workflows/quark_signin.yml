@@ -2,7 +2,7 @@ name: Quark Sign-in
 
 on:
   schedule:
-    - cron: '0 2 * * *'  # **改为北京时间 10:00 (UTC 2:00)**
+    - cron: '0 5 * * *'  
 
   workflow_dispatch:  # 允许手动触发
 
