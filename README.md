@@ -6,7 +6,7 @@
 
 > 🛑 **警告**：本项目遵循 [MIT 协议](https://opensource.org/licenses/MIT)。任何对项目的修改和发布必须保留原作者署名。
 >
-> **本项目禁止传播，有缘人自会看到。**
+> **本项目禁止传播，有缘人自会看到。给个星标再 fork 吧，求求了**
 >
 > 本仓库严厉谴责 [2pacJay/Quark_Auot_Check_In](https://github.com/2pacJay/Quark_Auot_Check_In) 仓库 **抹除原作者署名权的行为**，该行为严重违反 MIT 协议，侵害开源精神！
 
@@ -23,6 +23,7 @@
   - **新增：自动清理旧记录**：自动删除旧的 Workflow 运行记录，保持 Actions 页面整洁。
 - 本项目基于 BNDou大佬的项目中夸克网盘自动签到的子功能 https://github.com/BNDou/Auto_Check_In 修改而来
 - 感谢  [Spectrollay](https://github.com/Spectrollay) 对工作流的优化
+- 感谢  [haozihong ](https://github.com/Spectrollay) 对工作流的优化
 
 ---
 
