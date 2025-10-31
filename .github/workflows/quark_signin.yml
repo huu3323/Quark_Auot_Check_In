@@ -2,9 +2,9 @@ name: Quark签到
 
 on:
   schedule:
-    - cron: '0 1 * * *'   # 北京时间 09:00 (UTC+8 -> UTC+1)
-    - cron: '0 5 * * *'   # 北京时间 13:00 (UTC+8 -> UTC+5)
-  workflow_dispatch:      # 允许手动触发
+    - cron: '0 1 * * *'   # 北京时间 09:00
+    - cron: '0 5 * * *'   # 北京时间 13:00
+  workflow_dispatch:
 
 jobs:
   check-if-already-signed:
@@ -12,8 +12,7 @@ jobs:
     outputs:
       skip: ${{ steps.check.outputs.skip }}
     steps:
-      - name: 检出代码
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
       - name: 恢复签到成功记录缓存
         id: cache-success-restore
@@ -46,8 +45,7 @@ jobs:
     if: needs.check-if-already-signed.outputs.skip == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: 检出代码
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
       - name: 随机延迟（早上）
         if: github.event.schedule == '0 1 * * *'
@@ -74,6 +72,8 @@ jobs:
       - name: 执行签到脚本
         env:
           COOKIE_QUARK: ${{ secrets.COOKIE_QUARK }}
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}      # 🔹 Telegram 机器人 token
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}          # 🔹 Telegram Chat ID
         run: python checkIn_Quark.py
 
       - name: 标记今天签到成功
