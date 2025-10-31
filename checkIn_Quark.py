@@ -46,7 +46,7 @@ def send_telegram_message(title, message, success=True):
         print(f"❌ Telegram 推送异常：{e}")
 
 
-# ================== 核心签到逻辑 ==================
+# ================== 环境变量处理 ==================
 def get_env():
     if "COOKIE_QUARK" in os.environ:
         cookie_list = re.split('\n|&&', os.environ.get('COOKIE_QUARK'))
@@ -57,6 +57,7 @@ def get_env():
     return cookie_list
 
 
+# ================== 核心签到类 ==================
 class Quark:
     def __init__(self, user_data):
         self.param = user_data
@@ -109,7 +110,24 @@ class Quark:
             raise Exception("❌ 签到异常: 获取成长信息失败")
 
         username = self.param.get('user', '未知用户')
-        is_vip = "88VIP" if growth_info['88VIP'] else "普通用户"
+
+        # 智能判断会员等级 + 图标美化
+        vip_info = growth_info.get("user_vip_info", {})
+        if isinstance(vip_info, dict) and vip_info.get("vip_level"):
+            vip_level = vip_info["vip_level"].upper()
+            if "SVIP" in vip_level:
+                is_vip = "👑 SVIP"
+            elif "VIP" in vip_level:
+                is_vip = "💎 VIP"
+            else:
+                is_vip = vip_level
+        elif growth_info.get("88VIP"):
+            is_vip = "🟠 88VIP"
+        elif growth_info.get("is_vip"):
+            is_vip = "💎 VIP"
+        else:
+            is_vip = "👤 普通用户"
+
         total_capacity = self.convert_bytes(growth_info['total_capacity'])
         sign_reward = self.convert_bytes(growth_info['cap_composition'].get('sign_reward', 0))
 
@@ -137,10 +155,10 @@ class Quark:
             f"📈 连签进度：{progress}\n"
             f"╚═══════════════════════════════╝\n"
         )
-        return msg
+        return msg, is_vip
 
 
-# ================== 主流程入口 ==================
+# ================== 主流程 ==================
 def main():
     start_time = time.time()
     beijing_time = datetime.utcnow() + timedelta(hours=8)
@@ -152,6 +170,7 @@ def main():
     cookie_quark = get_env()
     print(f"✅ 检测到 {len(cookie_quark)} 个夸克账号\n")
 
+    main_vip_icon = "📢"  # 默认图标
     for i, cookie in enumerate(cookie_quark):
         user_data = {}
         for a in cookie.replace(" ", "").split(';'):
@@ -160,17 +179,21 @@ def main():
                 user_data[k] = v
 
         try:
-            log = Quark(user_data).do_sign()
+            log, vip_level = Quark(user_data).do_sign()
             msg += f"🙍🏻‍♂️ 第{i + 1}个账号\n{log}\n"
+
+            if i == 0:
+                main_vip_icon = vip_level.split()[0] if " " in vip_level else "📢"
+
         except Exception as e:
             err_msg = f"❌ 第{i + 1}个账号执行异常：{e}\n{traceback.format_exc()}"
             send("夸克签到失败 ❌", err_msg, success=False)
-            raise  # 让 Action 识别为失败
+            raise
 
     elapsed = round(time.time() - start_time, 2)
     msg += f"⏱️ 总耗时：{elapsed} 秒\n"
 
-    send('夸克自动签到成功 ✅', msg)
+    send(f'{main_vip_icon} 夸克自动签到成功 ✅', msg)
 
 
 if __name__ == "__main__":
