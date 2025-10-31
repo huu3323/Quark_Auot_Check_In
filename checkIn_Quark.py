@@ -1,35 +1,43 @@
 import os
 import re
 import sys
+import time
+import traceback
 import requests
+from datetime import datetime, timedelta
 
-# 从环境变量读取 Telegram Bot Token 和 Chat ID
+# ================== Telegram 通知配置 ==================
 TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
 TG_CHAT_ID = os.getenv("TG_CHAT_ID")
 
-def send(title, message):
+
+# ================== 推送与日志函数 ==================
+def send(title, message, success=True):
     """
-    自定义通知函数，支持控制台打印与 Telegram 推送
+    控制台输出 + Telegram 通知
     """
-    print(f"{title}: {message}")
+    print(f"{title}:\n{message}")
     if TG_BOT_TOKEN and TG_CHAT_ID:
-        send_telegram_message(title, message)
+        send_telegram_message(title, message, success)
     else:
         print("⚠️ 未配置 Telegram 环境变量，跳过推送。")
 
-def send_telegram_message(title, message):
+
+def send_telegram_message(title, message, success=True):
     """
-    发送 Telegram 消息（使用纯文本框样式）
+    发送 Telegram 消息
     """
     url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage"
-    text = f"📢 {title}\n\n{message}"
+    icon = "✅" if success else "❌"
+    text = f"{icon} {title}\n\n{message}"
+
     payload = {
         "chat_id": TG_CHAT_ID,
         "text": text,
         "parse_mode": "None"
     }
     try:
-        res = requests.post(url, json=payload)
+        res = requests.post(url, json=payload, timeout=10)
         if res.status_code == 200:
             print("✅ Telegram 推送成功！")
         else:
@@ -37,12 +45,14 @@ def send_telegram_message(title, message):
     except Exception as e:
         print(f"❌ Telegram 推送异常：{e}")
 
+
+# ================== 核心签到逻辑 ==================
 def get_env():
     if "COOKIE_QUARK" in os.environ:
         cookie_list = re.split('\n|&&', os.environ.get('COOKIE_QUARK'))
     else:
-        print('❌未添加COOKIE_QUARK变量')
-        send('夸克自动签到', '❌未添加COOKIE_QUARK变量')
+        print('❌ 未添加 COOKIE_QUARK 环境变量')
+        send('夸克自动签到', '❌ 未添加 COOKIE_QUARK 环境变量', success=False)
         sys.exit(0)
     return cookie_list
 
@@ -68,8 +78,11 @@ class Quark:
             "sign": self.param.get('sign'),
             "vcode": self.param.get('vcode')
         }
-        response = requests.get(url=url, params=querystring).json()
-        return response.get("data", False)
+        try:
+            response = requests.get(url=url, params=querystring, timeout=10).json()
+            return response.get("data", False)
+        except Exception as e:
+            raise Exception(f"网络请求异常：{e}")
 
     def get_growth_sign(self):
         url = "https://drive-m.quark.cn/1/clouddrive/capacity/growth/sign"
@@ -81,11 +94,14 @@ class Quark:
             "vcode": self.param.get('vcode')
         }
         data = {"sign_cyclic": True}
-        response = requests.post(url=url, json=data, params=querystring).json()
-        if response.get("data"):
-            return True, response["data"]["sign_daily_reward"]
-        else:
-            return False, response.get("message", "未知错误")
+        try:
+            response = requests.post(url=url, json=data, params=querystring, timeout=10).json()
+            if response.get("data"):
+                return True, response["data"]["sign_daily_reward"]
+            else:
+                return False, response.get("message", "未知错误")
+        except Exception as e:
+            raise Exception(f"签到请求异常：{e}")
 
     def do_sign(self):
         growth_info = self.get_growth_info()
@@ -111,7 +127,6 @@ class Quark:
                 progress = "—"
                 sign_status = f"❌ 签到异常: {sign_return}"
 
-        # 🔸 文本框格式（样板1）
         msg = (
             f"╔══════════ 夸克签到结果 ═════════╗\n"
             f"👤 用户：{username}\n"
@@ -125,10 +140,17 @@ class Quark:
         return msg
 
 
+# ================== 主流程入口 ==================
 def main():
-    msg = ""
+    start_time = time.time()
+    beijing_time = datetime.utcnow() + timedelta(hours=8)
+    start_str = beijing_time.strftime("%Y-%m-%d %H:%M:%S")
+
+    msg = f"🕓 执行时间（北京时间）：{start_str}\n"
+    msg += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+
     cookie_quark = get_env()
-    print("✅ 检测到共", len(cookie_quark), "个夸克账号\n")
+    print(f"✅ 检测到 {len(cookie_quark)} 个夸克账号\n")
 
     for i, cookie in enumerate(cookie_quark):
         user_data = {}
@@ -137,14 +159,25 @@ def main():
                 k, v = a.split('=', 1)
                 user_data[k] = v
 
-        log = Quark(user_data).do_sign()
-        msg += f"🙍🏻‍♂️ 第{i + 1}个账号\n{log}\n"
+        try:
+            log = Quark(user_data).do_sign()
+            msg += f"🙍🏻‍♂️ 第{i + 1}个账号\n{log}\n"
+        except Exception as e:
+            err_msg = f"❌ 第{i + 1}个账号执行异常：{e}\n{traceback.format_exc()}"
+            send("夸克签到失败 ❌", err_msg, success=False)
+            raise  # 让 Action 识别为失败
+
+    elapsed = round(time.time() - start_time, 2)
+    msg += f"⏱️ 总耗时：{elapsed} 秒\n"
 
     send('夸克自动签到成功 ✅', msg)
-    return msg
 
 
 if __name__ == "__main__":
     print("----------夸克网盘开始签到----------")
-    main()
-    print("----------夸克网盘签到完毕----------")
+    try:
+        main()
+        print("----------夸克网盘签到完毕----------")
+    except Exception as e:
+        print(f"❌ 脚本运行失败: {e}")
+        sys.exit(1)
